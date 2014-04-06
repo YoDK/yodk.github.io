@@ -1,1 +1,152 @@
-Hello World
+<!DOCTYPE html>
+<html lang="en">
+  
+  <head>
+    <meta charset="utf-8">
+    <title>GoPhr</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css"
+    rel="stylesheet">
+    <link href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"
+    rel="stylesheet">
+    <script type="text/javascript" src="https://cdn.goinstant.net/v1/platform.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="css/gophr.css">
+    <script src="js/gophr.js"></script>
+
+    <script>
+    function loadImageFileAsURL() {
+      var filesSelected = document.getElementById("inputFileToLoad").files;
+
+      if (filesSelected.length > 0) {
+        var fileToLoad = filesSelected[0];
+        var fileReader = new FileReader();
+
+        fileReader.onload = function() {
+          var elementType;
+          var createOriginalElement;
+
+          // identify the file type
+          var fileType = fileToLoad.type;
+
+          // filter the file type
+          if (fileType.match(/image/)) {
+            elementType = 'img';
+          } else {
+            alert('Sorry, file type not supported. Please try a standard image file like JPG, PNG, or GIF.');
+          }
+
+          // render the original image so canvas can create a copy
+          var createOriginalElement = document.createElement(elementType);
+          // get the dataURL from FileReader
+          createOriginalElement.src = fileReader.result;
+          // render the original image
+          document.getElementById("originalImg").src = createOriginalElement.src;
+
+          // resizing
+          if (elementType == 'img') {
+            // wait for the original image to be created
+            createOriginalElement.onload = function() {
+              // values we want to resize to
+              var MAX_WIDTH = 558;
+              var MAX_HEIGHT = 314;
+              // values of the original image
+              var width = createOriginalElement.width;
+              var height = createOriginalElement.height;
+               
+              // determine the orientation and resize accordingly
+              if (width > height) {
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+              } else {
+                if (height > MAX_HEIGHT) {
+                  width *= MAX_HEIGHT / height;
+                  height = MAX_HEIGHT;
+                }
+              }
+            
+              // Create the canvas element
+              var canvas = document.createElement("canvas");
+              var ctx = canvas.getContext("2d");
+              // give the canvas the resized values
+              canvas.width = width;
+              canvas.height = height;
+
+              // Draw the new image onto the canvas
+              ctx.drawImage(createOriginalElement,0,0,createOriginalElement.width,
+                createOriginalElement.height,0,0,canvas.width,canvas.height);
+
+              // get the resized image dataURL from the canvas 
+              document.getElementById("uploadPreview").src = canvas.toDataURL("image/webp");
+
+              syncWithGoInstant();
+
+              // create and set GoInstant keys
+              function syncWithGoInstant() {
+                // make a key for the size of the file to be sync'd
+                // we use this on #get to only render the image when it's ready
+                var fileSize = lobby.key('fileSize');
+                var fileValue = uploadPreview.src.length;
+                fileSize.set(fileValue);
+
+                // split the string into ~32kb sized arrays
+                // GoInstant keys are limited to 32kb
+                var b64Split = uploadPreview.src.match(/.{1,32000}/g);
+
+                // make a key for the number of splits created
+                // we need to know this to run the for loop for both the #set and #get
+                var b64Splits = lobby.key('b64Splits');
+                var b64SplitsValue = b64Split.length;
+                b64Splits.set(b64SplitsValue);
+                  
+                // make keys for each split
+                for (var i = 0; i < b64Split.length; i++) {
+                  // Create a new key
+                  var myNewB64Key = lobby.key('myNewB64Key' + i);
+                  // Create a variable to store the string
+                  var b64Value = b64Split[i];
+                  // Set the key with the string
+                  myNewB64Key.set(b64Value);
+
+                  if (i === (b64Split.length - 1)) {
+                    //alert('pause get keys message');
+
+                    // send message to start key#get
+                    var channel = lobby.channel('/a/channel');
+                      channel.message({}, function(err) {
+                      if (err) {
+                        // Messaging the channel was not successful!
+                      }
+                    });
+                  }
+                }
+              }
+            }
+          }
+        };
+        fileReader.readAsDataURL(fileToLoad);
+      };
+    }
+  </script>
+  </head>
+  
+  <body>
+    <div class="container">
+      <div id="header">
+        <div class="upload">
+          <input id="inputFileToLoad" type="file" onchange="loadImageFileAsURL();" name="GoPhr" accept="image/*" capture/>
+        </div>
+      </div>
+      <div id="content">
+        <div id="uploadImage">
+        </div>
+      </div>
+      <div><img style="display:none;" id="uploadPreview"/></div>
+      <div><img style="display:none;" id="originalImg"/></div>
+    </div>
+  </body>
+
+</html>
